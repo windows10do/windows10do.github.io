@@ -1,0 +1,10 @@
+title: WINDOWS10DO
+description: Hub for my web projects and dashboards.
+remote_theme: pages-themes/tactile
+
+github_username: windows10do
+
+exclude:
+  - Gemfile
+  - Gemfile.lock
+  - node_modules/
