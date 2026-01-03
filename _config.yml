@@ -4,7 +4,13 @@ remote_theme: pages-themes/tactile
 
 github_username: windows10do
 
+header_pages:
+  - index.md
+  - about.md
+  - contact.md
+
 exclude:
   - Gemfile
   - Gemfile.lock
   - node_modules/
+  - 404.md
