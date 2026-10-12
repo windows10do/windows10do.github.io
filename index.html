@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#101522">
+
+<title>VR GLB Viewer</title>
+
+<style>
+:root {
+    color-scheme: dark;
+    --background: #101522;
+    --panel: #1a2233;
+    --accent: #7c6cff;
+    --text: #f3f5ff;
+    --muted: #a6afc5;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: system-ui, sans-serif;
+    background: var(--background);
+    color: var(--text);
+    min-height: 100vh;
+}
+
+header {
+    padding: 22px 18px;
+    text-align: center;
+    border-bottom: 1px solid #293247;
+}
+
+header h1 {
+    margin: 0;
+    font-size: 27px;
+}
+
+header p {
+    margin: 8px 0 0;
+    color: var(--muted);
+    font-size: 14px;
+}
+
+main {
+    width: min(100% - 24px, 1000px);
+    margin: 22px auto;
+}
+
+.panel {
+    background: var(--panel);
+    border: 1px solid #2c3650;
+    border-radius: 16px;
+    padding: 18px;
+    margin-bottom: 18px;
+}
+
+h2 {
+    font-size: 18px;
+    margin: 0 0 14px;
+}
+
+#viewer {
+    width: 100%;
+    height: min(55vh, 450px);
+    min-height: 260px;
+    border-radius: 12px;
+    overflow: hidden;
+    background: #090e19;
+    position: relative;
+}
+
+#viewer canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+#emptyMessage {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    color: var(--muted);
+    padding: 20px;
+    pointer-events: none;
+}
+
+.upload-area {
+    border: 2px dashed #485477;
+    border-radius: 12px;
+    padding: 25px 15px;
+    text-align: center;
+    cursor: pointer;
+}
+
+.upload-area:hover {
+    border-color: var(--accent);
+}
+
+.upload-area strong {
+    display: block;
+    margin-bottom: 7px;
+}
+
+input[type="file"] {
+    max-width: 100%;
+    margin-top: 12px;
+}
+
+button {
+    background: #29344d;
+    color: white;
+    border: 1px solid #3a4868;
+    border-radius: 10px;
+    padding: 12px 15px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+button:hover {
+    filter: brightness(1.15);
+}
+
+button:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+}
+
+.danger {
+    background: #512b39;
+    border-color: #794153;
+}
+
+.actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 15px;
+}
+
+label {
+    display: block;
+    font-size: 14px;
+    color: var(--muted);
+    margin-bottom: 10px;
+}
+
+input[type="range"] {
+    width: 100%;
+    accent-color: var(--accent);
+    margin-top: 10px;
+}
+
+#status {
+    font-size: 14px;
+    color: var(--muted);
+    margin-top: 12px;
+    overflow-wrap: anywhere;
+}
+
+#status.error {
+    color: #ff9292;
+}
+
+#status.success {
+    color: #8ef0b0;
+}
+
+.note {
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+footer {
+    text-align: center;
+    padding: 18px;
+    color: var(--muted);
+    font-size: 12px;
+}
+
+@media (max-width: 500px) {
+    header h1 {
+        font-size: 23px;
+    }
+
+    .panel {
+        padding: 13px;
+    }
+
+    .actions button {
+        flex: 1 1 130px;
+    }
+}
+</style>
+</head>
+
+<body>
+
+<header>
+    <h1>🥽 VR GLB Viewer</h1>
+    <p>Your 3D models. Your virtual space.</p>
+</header>
+
+<main>
+
+    <section class="panel">
+        <h2>3D Preview</h2>
+
+        <div id="viewer">
+            <div id="emptyMessage">
+                Upload a GLB model to begin.
+            </div>
+        </div>
+
+        <div class="actions">
+            <button id="vrButton" class="primary" disabled>
+                Enter VR
+            </button>
+
+            <button id="resetButton" disabled>
+                Reset position
+            </button>
+
+            <button id="unloadButton" class="danger" disabled>
+                Remove model
+            </button>
+        </div>
+
+        <div id="status" role="status" aria-live="polite">
+            Initializing 3D viewer...
+        </div>
+    </section>
+
+    <section class="panel">
+        <h2>📂 Upload your model</h2>
+
+        <label class="upload-area" for="fileInput">
+            <strong>Choose a GLB file</strong>
+            Select a .glb model stored on your device.
+            <input
+                type="file"
+                id="fileInput"
+                accept=".glb,model/gltf-binary"
+            >
+        </label>
+
+        <p class="note">
+            Your model is loaded locally in your browser.
+            It is not uploaded to a server.
+        </p>
+    </section>
+
+    <section class="panel">
+        <h2>⚙️ Model settings</h2>
+
+        <label for="scaleSlider">
+            Model scale:
+            <span id="scaleValue">1.0×</span>
+        </label>
+
+        <input
+            type="range"
+            id="scaleSlider"
+            min="0.1"
+            max="3"
+            step="0.1"
+            value="1"
+            disabled
+        >
+
+        <p class="note">
+            The scale slider changes the size of your model.
+            In VR, the model is positioned approximately one metre
+            to your right, relative to the starting view.
+        </p>
+    </section>
+
+    <section class="panel">
+        <h2>ℹ️ How to use</h2>
+
+        <p class="note">
+            1. Select a GLB file.<br>
+            2. Rotate the preview by dragging with your mouse or finger.<br>
+            3. Adjust the model scale if needed.<br>
+            4. Press Enter VR on a compatible headset and browser.<br>
+            5. Look around to see the model beside you.
+        </p>
+
+        <p class="note">
+            VR requires HTTPS and a browser/device supporting
+            WebXR immersive-vr sessions. GitHub Pages provides HTTPS.
+            Ordinary mobile browsers may not support immersive VR.
+        </p>
+    </section>
+
+</main>
+
+<footer>
+    VR GLB Viewer · Built with Three.js and WebXR
+</footer>
+
+<script type="module">
+import * as THREE from
+    "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js";
+
+import { GLTFLoader } from
+    "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/GLTFLoader.js";
+
+import { OrbitControls } from
+    "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/controls/OrbitControls.js";
+
+const viewer = document.getElementById("viewer");
+const fileInput = document.getElementById("fileInput");
+const emptyMessage = document.getElementById("emptyMessage");
+const statusElement = document.getElementById("status");
+
+const vrButton = document.getElementById("vrButton");
+const resetButton = document.getElementById("resetButton");
+const unloadButton = document.getElementById("unloadButton");
+
+const scaleSlider = document.getElementById("scaleSlider");
+const scaleValue = document.getElementById("scaleValue");
+
+let renderer;
+let scene;
+let camera;
+let controls;
+let model = null;
+let modelCenter = new THREE.Vector3();
+let modelBaseScale = 1;
+let modelScale = 1;
+let previewCameraPosition;
+let previewCameraTarget;
+let currentObjectURL = null;
+let xrSupported = false;
+
+const loader = new GLTFLoader();
+
+function setStatus(message, type = "") {
+    statusElement.textContent = message;
+    statusElement.className = type;
+}
+
+function initialize() {
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x090e19);
+
+    camera = new THREE.PerspectiveCamera(
+        60,
+        viewer.clientWidth / viewer.clientHeight,
+        0.01,
+        1000
+    );
+
+    camera.position.set(2.5, 1.8, 3.5);
+
+    renderer = new THREE.WebGLRenderer({
+        antialias: true,
+        alpha: false
+    });
+
+    renderer.setPixelRatio(
+        Math.min(window.devicePixelRatio || 1, 2)
+    );
+
+    renderer.setSize(
+        viewer.clientWidth,
+        viewer.clientHeight
+    );
+
+    renderer.xr.enabled = true;
+
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1;
+
+    viewer.appendChild(renderer.domElement);
+
+    controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.target.set(0, 1, 0);
+    controls.update();
+
+    previewCameraPosition = camera.position.clone();
+    previewCameraTarget = controls.target.clone();
+
+    // Lighting
+    scene.add(new THREE.HemisphereLight(
+        0xc4d8ff,
+        0x25283b,
+        2
+    ));
+
+    const keyLight = new THREE.DirectionalLight(
+        0xffffff,
+        3
+    );
+
+    keyLight.position.set(4, 8, 5);
+    scene.add(keyLight);
+
+    const fillLight = new THREE.DirectionalLight(
+        0x818fff,
+        1.2
+    );
+
+    fillLight.position.set(-4, 3, -4);
+    scene.add(fillLight);
+
+    // Floor grid for the preview
+    const grid = new THREE.GridHelper(
+        20,
+        40,
+        0x59688b,
+        0x273149
+    );
+
+    scene.add(grid);
+
+    // Floor
+    const floor = new THREE.Mesh(
+        new THREE.PlaneGeometry(200, 200),
+        new THREE.MeshStandardMaterial({
+            color: 0x111827,
+            roughness: 0.9,
+            metalness: 0
+        })
+    );
+
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.y = -0.015;
+    scene.add(floor);
+
+    window.addEventListener("resize", onResize);
+
+    renderer.setAnimationLoop(render);
+
+    checkXRSupport();
+    setStatus("Ready. Choose a GLB model to begin.");
+}
+
+function onResize() {
+    if (!camera || !renderer) return;
+
+    const width = viewer.clientWidth;
+    const height = viewer.clientHeight;
+
+    camera.aspect = width / height;
+    camera.updateProjectionMatrix();
+
+    renderer.setSize(width, height);
+}
+
+async function checkXRSupport() {
+    if (!navigator.xr) {
+        vrButton.textContent = "WebXR unavailable";
+        vrButton.disabled = true;
+
+        setStatus(
+            "WebXR is unavailable in this browser. " +
+            "You can still preview your model."
+        );
+
+        return;
+    }
+
+    try {
+        xrSupported =
+            await navigator.xr.isSessionSupported("immersive-vr");
+
+        vrButton.disabled = !xrSupported;
+
+        vrButton.textContent = xrSupported
+            ? "Enter VR"
+            : "VR not supported";
+
+        setStatus(
+            xrSupported
+                ? "VR is supported. Upload a GLB model to begin."
+                : "This device or browser does not support immersive VR."
+        );
+    } catch (error) {
+        vrButton.disabled = true;
+        setStatus("Unable to check WebXR support.");
+    }
+}
+
+function disposeObject(object) {
+    object.traverse((child) => {
+        if (child.geometry) {
+            child.geometry.dispose();
+        }
+
+        if (child.material) {
+            const materials = Array.isArray(child.material)
+                ? child.material
+                : [child.material];
+
+            for (const material of materials) {
+                // Dispose GPU textures and materials.
+                for (const key of Object.keys(material)) {
+                    const value = material[key];
+
+                    if (value && value.isTexture) {
+                        value.dispose();
+                    }
+                }
+
+                material.dispose();
+            }
+        }
+    });
+}
+
+function removeCurrentModel() {
+    if (!model) return;
+
+    scene.remove(model);
+    disposeObject(model);
+
+    model = null;
+
+    if (currentObjectURL) {
+        URL.revokeObjectURL(currentObjectURL);
+        currentObjectURL = null;
+    }
+
+    vrButton.disabled = !xrSupported;
+    resetButton.disabled = true;
+    unloadButton.disabled = true;
+    scaleSlider.disabled = true;
+
+    emptyMessage.style.display = "flex";
+}
+
+function prepareModel(object) {
+    // Normalize the original model's size and place its bottom
+    // at ground level.
+    const box = new THREE.Box3().setFromObject(object);
+    const size = box.getSize(new THREE.Vector3());
+
+    if (
+        !Number.isFinite(size.x) ||
+        !Number.isFinite(size.y) ||
+        !Number.isFinite(size.z) ||
+        Math.max(size.x, size.y, size.z) <= 0
+    ) {
+        throw new Error("The model has invalid dimensions.");
+    }
+
+    const maxDimension = Math.max(size.x, size.y, size.z);
+
+    // Normalize to a maximum dimension of approximately 1 metre.
+    modelBaseScale = 1 / maxDimension;
+    modelScale = 1;
+
+    object.scale.multiplyScalar(modelBaseScale);
+
+    // Recalculate bounds after normalization.
+    const normalizedBox = new THREE.Box3().setFromObject(object);
+    const center = normalizedBox.getCenter(new THREE.Vector3());
+
+    object.position.x -= center.x;
+    object.position.z -= center.z;
+    object.position.y -= normalizedBox.min.y;
+
+    // Keep a stable ground-level center.
+    modelCenter.set(0, 0, 0);
+
+    object.userData.originalPosition = object.position.clone();
+
+    scene.add(object);
+    model = object;
+
+    scaleSlider.value = "1";
+    scaleValue.textContent = "1.0×";
+
+    scaleSlider.disabled = false;
+    resetButton.disabled = false;
+    unloadButton.disabled = false;
+
+    emptyMessage.style.display = "none";
+
+    // Aim the preview camera at the model.
+    controls.target.set(0, 0.5, 0);
+    camera.position.set(2.5, 1.8, 3.5);
+    controls.update();
+
+    previewCameraPosition = camera.position.clone();
+    previewCameraTarget = controls.target.clone();
+
+    setStatus(
+        "Model loaded! You can preview it or enter VR.",
+        "success"
+    );
+}
+
+fileInput.addEventListener("change", async () => {
+    const file = fileInput.files?.[0];
+
+    if (!file) return;
+
+    if (!file.name.toLowerCase().endsWith(".glb")) {
+        setStatus("Please select a .glb file.", "error");
+        return;
+    }
+
+    if (file.size === 0) {
+        setStatus("The selected file is empty.", "error");
+        return;
+    }
+
+    // Avoid loading a new model while in VR.
+    if (renderer.xr.isPresenting) {
+        setStatus("Exit VR before loading another model.", "error");
+        return;
+    }
+
+    removeCurrentModel();
+
+    setStatus("Loading " + file.name + "...");
+
+    try {
+        currentObjectURL = URL.createObjectURL(file);
+
+        const gltf = await loader.loadAsync(currentObjectURL);
+
+        if (!gltf.scene) {
+            throw new Error("The GLB contains no scene.");
+        }
+
+        prepareModel(gltf.scene);
+
+    } catch (error) {
+        console.error(error);
+
+        if (currentObjectURL) {
+            URL.revokeObjectURL(currentObjectURL);
+            currentObjectURL = null;
+        }
+
+        setStatus(
+            "Could not load this GLB. It may be invalid or unsupported. " +
+            "Try another file.",
+            "error"
+        );
+
+        fileInput.value = "";
+    }
+});
+
+scaleSlider.addEventListener("input", () => {
+    if (!model) return;
+
+    modelScale = Number(scaleSlider.value);
+
+    model.scale.setScalar(modelBaseScale * modelScale);
+
+    scaleValue.textContent = modelScale.toFixed(1) + "×";
+});
+
+function resetModelPosition() {
+    if (!model) return;
+
+    model.position.copy(model.userData.originalPosition);
+    model.rotation.set(0, 0, 0);
+
+    if (!renderer.xr.isPresenting) {
+        camera.position.copy(previewCameraPosition);
+        controls.target.copy(previewCameraTarget);
+        controls.update();
+    }
+
+    setStatus("Model position reset.", "success");
+}
+
+resetButton.addEventListener("click", resetModelPosition);
+
+unloadButton.addEventListener("click", () => {
+    if (renderer.xr.isPresenting) {
+        setStatus("Exit VR before removing the model.", "error");
+        return;
+    }
+
+    removeCurrentModel();
+    fileInput.value = "";
+
+    setStatus("Model removed. Choose another GLB.");
+});
+
+vrButton.addEventListener("click", async () => {
+    if (!model) {
+        setStatus("Upload a GLB model before entering VR.");
+        return;
+    }
+
+    if (!navigator.xr || !xrSupported) {
+        setStatus("Immersive VR is not supported.", "error");
+        return;
+    }
+
+    if (renderer.xr.isPresenting) {
+        await renderer.xr.getSession()?.end();
+        return;
+    }
+
+    try {
+        const session = await navigator.xr.requestSession(
+            "immersive-vr",
+            {
+                optionalFeatures: [
+                    "local-floor",
+                    "bounded-floor"
+                ]
+            }
+        );
+
+        await renderer.xr.setSession(session);
+
+        // Place the model in front of the initial VR view,
+        // then move it approximately one metre to the right.
+        //
+        // WebXR's reference-space origin is used as the
+        // starting position for this placement.
+        const referenceSpace =
+            await session.requestReferenceSpace("local");
+
+        const pose = new THREE.Vector3(1, 0, -1.5);
+
+        const xrCamera = renderer.xr.getCamera(camera);
+
+        const initialDirection = new THREE.Vector3(
+            0, 0, -1
+        );
+
+        initialDirection.applyQuaternion(
+            xrCamera.quaternion
+        );
+
+        initialDirection.y = 0;
+
+        if (initialDirection.lengthSq() > 0.001) {
+            initialDirection.normalize();
+
+            const right = new THREE.Vector3(
+                -initialDirection.z,
+                0,
+                initialDirection.x
+            );
+
+            pose.set(
+                right.x * 1.0 + initialDirection.x * 1.5,
+                0,
+                right.z * 1.0 + initialDirection.z * 1.5
+            );
+        }
+
+        // Move the model into the VR scene.
+        model.position.set(pose.x, pose.y, pose.z);
+
+        session.addEventListener("end", () => {
+            vrButton.textContent = "Enter VR";
+
+            if (model) {
+                model.position.copy(
+                    model.userData.originalPosition
+                );
+            }
+
+            setStatus(
+                "VR session ended. Your model is still loaded."
+            );
+        });
+
+        vrButton.textContent = "Exit VR";
+
+        setStatus("VR session started!", "success");
+
+    } catch (error) {
+        console.error(error);
+
+        setStatus(
+            "Could not start VR. Check browser compatibility, " +
+            "HTTPS, and headset permissions.",
+            "error"
+        );
+    }
+});
+
+function render() {
+    if (!renderer) return;
+
+    if (!renderer.xr.isPresenting) {
+        controls.update();
+    }
+
+    renderer.render(scene, camera);
+}
+
+try {
+    initialize();
+} catch (error) {
+    console.error(error);
+    setStatus(
+        "Failed to initialize the 3D viewer. " +
+        "Check your browser and internet connection.",
+        "error"
+    );
+}
+</script>
+
+</body>
+</html>
